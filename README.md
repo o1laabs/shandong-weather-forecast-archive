@@ -180,4 +180,4 @@ python3 verify_data.py data/
 
 ---
 
-<sub>数据来源：Open-Meteo（https://open-meteo.com/），遵循 CC BY 4.0 许可。使用本数据请保留此署名。</sub>
+<sub>数据来源：Open-Meteo，遵循 CC BY 4.0 许可。使用本数据请保留此署名。</sub>
