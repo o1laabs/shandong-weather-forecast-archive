@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Open-Meteo 预报归档 · 数据完整性核验
+山东省天气预报归档 · 数据完整性核验
 
 用法:
     python3 verify_data.py data/          # 核验 data/ 目录下的 CSV
