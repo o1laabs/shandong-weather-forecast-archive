@@ -3,8 +3,11 @@
 import csv, glob, os, re
 
 D = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(D, "README_public.md")
-OUT = os.path.join(D, "README_public.md")
+# 兼容两种环境: 本地用 README_public.md, Actions 用 README.md
+if os.path.exists(os.path.join(D, "README.md")):
+    SRC = OUT = os.path.join(D, "README.md")
+else:
+    SRC = OUT = os.path.join(D, "README_public.md")
 
 def stats():
     days, rows = set(), 0
