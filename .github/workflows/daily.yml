@@ -1,0 +1,109 @@
+name: Daily Forecast Update
+
+on:
+  schedule:
+    - cron: '30 0 * * *'      # UTC 00:30 = 北京 08:30
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      # ---- 从 data-cache 分支取历史 chunks ----
+      - name: Fetch chunks cache
+        run: |
+          mkdir -p chunks
+          if git ls-remote --exit-code --heads origin data-cache >/dev/null 2>&1; then
+            git fetch origin data-cache --depth=1
+            git show origin/data-cache:chunks.tar.gz > chunks.tar.gz 2>/dev/null || true
+          fi
+          if [ -s chunks.tar.gz ]; then
+            python3 pack_chunks.py unpack
+          else
+            echo "::warning::no cache found, starting fresh"
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ---- 增量抓取 ----
+      - name: Incremental fetch
+        run: python3 daily_update.py
+
+      # ---- 重建 CSV ----
+      - name: Build pipelines
+        run: |
+          python3 build_final.py
+          python3 build_province.py
+          python3 - <<'PY'
+          import csv, os
+          fp = 'csv_out/山东省.csv'
+          if os.path.exists(fp):
+              rows = list(csv.DictReader(open(fp, encoding='utf-8-sig')))
+              for r in rows:
+                  r['region_name'] = '鲁中参考点'
+              with open('csv_out/鲁中参考点.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                  w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                  w.writeheader(); w.writerows(rows)
+              os.remove(fp)
+          PY
+          python3 rebuild_all.py
+
+      # ---- 核验（失败则中止）----
+      - name: Verify
+        run: python3 verify_data.py csv_out
+
+      - name: Regenerate README
+        run: python3 gen_readme.py
+
+      # ---- 发布 CSV ----
+      - name: Publish CSVs
+        run: |
+          mkdir -p data
+          cp csv_out/济南.csv csv_out/青岛.csv csv_out/淄博.csv csv_out/枣庄.csv \
+             csv_out/东营.csv csv_out/烟台.csv csv_out/潍坊.csv csv_out/济宁.csv \
+             csv_out/泰安.csv csv_out/威海.csv csv_out/日照.csv csv_out/临沂.csv \
+             csv_out/德州.csv csv_out/聊城.csv csv_out/滨州.csv csv_out/菏泽.csv \
+             csv_out/山东省_面积加权.csv csv_out/all_regions.csv data/
+          cp README_public.md README.md
+
+      - name: Commit data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ README.md verify_data.py
+          if git diff --staged --quiet; then
+            echo "no changes"
+          else
+            git commit -m "Daily update $(date -u '+%Y-%m-%d')"
+            git push origin HEAD:main
+          fi
+
+      # ---- 更新 chunks 缓存分支 ----
+      - name: Repack and push cache
+        run: |
+          python3 pack_chunks.py pack
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan data-cache-new
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          cp chunks.tar.gz /tmp/cache.tar.gz
+          rm -rf chunks csv_out data .github *.py README*.md
+          cp /tmp/cache.tar.gz chunks.tar.gz
+          git add -f chunks.tar.gz
+          git commit -m "cache $(date -u '+%Y-%m-%d')"
+          git push -f origin HEAD:data-cache
