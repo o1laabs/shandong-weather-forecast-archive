@@ -178,10 +178,6 @@ python3 verify_data.py data/
 
 每日自动增量更新，数据持续推进至最新可用日期。
 
-## 数据来源与许可
+---
 
-本仓库数据基于 **Open-Meteo** 的公开气象数据整理而成，遵循 **CC BY 4.0** 许可协议。
-
-使用时请保留对 Open-Meteo（https://open-meteo.com/）的署名。
-
-本仓库仅做格式转换、时间维度重组与省级面积加权合成，不改变原始数值。
+<sub>数据来源：Open-Meteo（https://open-meteo.com/），遵循 CC BY 4.0 许可。使用本数据请保留此署名。</sub>
