@@ -12,6 +12,7 @@ Open-Meteo 预报归档 · 每日增量更新
   python3 daily_update.py --full     # 强制重抓最后 N 个块
 """
 import json, os, subprocess, sys, time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 D = os.path.dirname(os.path.abspath(__file__))
@@ -111,18 +112,26 @@ def main():
     print(f"任务数: {len(targets)} 块 x {len(REGIONS)} 区域 x {len(MODELS)} 模型 x {len(GROUPS)} 组"
           f" = {len(targets)*len(REGIONS)*len(MODELS)*len(GROUPS)}")
 
-    ok = fail = 0
-    for ci, (s, e) in targets:
+    tasks = []
+    for ci, (s0, e0) in targets:
         for gi in range(len(GROUPS)):
             for model in MODELS:
                 for reg in REGIONS:
-                    if fetch_block(reg, gi, model, ci, s, e):
-                        ok += 1
-                    else:
-                        fail += 1
-                        print(f"  FAIL {reg}__{gi}__{model}__{ci}", flush=True)
-            print(f"  块{ci}({s}~{e}) 组{gi} 完成  ok={ok} fail={fail}", flush=True)
-    print(f"\n增量抓取完成: ok={ok} fail={fail}")
+                    tasks.append((reg, gi, model, ci, s0, e0))
+    print("并发抓取 %d 个任务 (workers=4)" % len(tasks), flush=True)
+
+    ok = [0]; fail = [0]
+    def worker(t):
+        reg, gi, model, ci, s0, e0 = t
+        if fetch_block(reg, gi, model, ci, s0, e0):
+            ok[0] += 1
+        else:
+            fail[0] += 1
+            print("  FAIL %s__%d__%s__%d" % (reg, gi, model, ci), flush=True)
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        list(ex.map(worker, tasks))
+    print("\n增量抓取完成: ok=%d fail=%d" % (ok[0], fail[0]))
 
 if __name__ == "__main__":
     main()
