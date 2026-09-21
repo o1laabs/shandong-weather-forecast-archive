@@ -63,12 +63,14 @@ jobs:
       - name: Publish CSVs
         run: |
           mkdir -p data
-          cp csv_out/济南.csv csv_out/青岛.csv csv_out/淄博.csv csv_out/枣庄.csv \
-             csv_out/东营.csv csv_out/烟台.csv csv_out/潍坊.csv csv_out/济宁.csv \
-             csv_out/泰安.csv csv_out/威海.csv csv_out/日照.csv csv_out/临沂.csv \
-             csv_out/德州.csv csv_out/聊城.csv csv_out/滨州.csv csv_out/菏泽.csv \
-             csv_out/山东省_面积加权.csv csv_out/all_regions.csv data/
-          cp README_public.md README.md
+          for f in csv_out/*.csv; do
+            b=$(basename "$f")
+            case "$b" in
+              鲁中参考点.csv) continue ;;   # 内部排查产物，不对外
+            esac
+            cp "$f" data/
+          done
+          ls -la data/ | head -25
 
       - name: Commit data
         run: |
