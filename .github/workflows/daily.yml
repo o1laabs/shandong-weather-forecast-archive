@@ -49,18 +49,7 @@ jobs:
         run: |
           python3 build_final.py
           python3 build_province.py
-          python3 - <<'PY'
-          import csv, os
-          fp = 'csv_out/山东省.csv'
-          if os.path.exists(fp):
-              rows = list(csv.DictReader(open(fp, encoding='utf-8-sig')))
-              for r in rows:
-                  r['region_name'] = '鲁中参考点'
-              with open('csv_out/鲁中参考点.csv', 'w', newline='', encoding='utf-8-sig') as f:
-                  w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-                  w.writeheader(); w.writerows(rows)
-              os.remove(fp)
-          PY
+          python3 rename_single.py
           python3 rebuild_all.py
 
       # ---- 核验（失败则中止）----
