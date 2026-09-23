@@ -24,11 +24,12 @@ def main():
     d0, d1, ndays, nrows = stats()
     txt = open(SRC, encoding="utf-8").read()
     # 替换顶部摘要
-    txt = re.sub(r"> 覆盖山东 17 个点位、[^。]*。",
+    # 匹配从 "> 覆盖山东" 到行尾的整行, 避免只替换到第一个句号而反复追加
+    txt = re.sub(r"^> 覆盖山东.*$",
                  f"> 覆盖山东 17 个点位、**{d0} ~ {d1}**（{ndays} 天）的逐日预报数据，"
                  f"按 **day1 ~ day7 提前期**切片，含 GFS / ECMWF / JMA 三个数值模型，"
                  f"并附**面积加权省级预报**。**每日自动更新。**",
-                 txt, count=1)
+                 txt, count=1, flags=re.M)
     # 替换统计表
     txt = re.sub(r"\| 时间范围 \| [^|]*\|", f"| 时间范围 | {d0} ~ {d1}（{ndays} 天）|", txt)
     txt = re.sub(r"\| 数据行数 \| [^|]*\|", f"| 数据行数 | {nrows:,} 行 |", txt)
