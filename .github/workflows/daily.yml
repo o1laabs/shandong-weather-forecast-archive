@@ -2,7 +2,9 @@ name: Daily Forecast Update
 
 on:
   schedule:
-    - cron: '30 0 * * *'      # UTC 00:30 = 北京 08:30
+    # GitHub 的 schedule 有约 4.5 小时延迟（实测 00:30 UTC 设定 -> 04:56~05:16 UTC 执行）
+    # 因此设为 UTC 20:00 = 北京 04:00，加延迟后约在北京 08:30 完成
+    - cron: '0 20 * * *'
   workflow_dispatch:
 
 permissions:
