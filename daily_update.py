@@ -13,7 +13,11 @@ Open-Meteo 预报归档 · 每日增量更新
 """
 import json, os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
+
+# 数据按北京时间(timezone=Asia/Shanghai)定义, 但 CI runner 是 UTC。
+# 若用 date.today() (UTC), 目标日会比北京时间晚一天, 每天少抓一天数据。
+CST = timezone(timedelta(hours=8))
 
 D = os.path.dirname(os.path.abspath(__file__))
 REGIONS = {
@@ -90,7 +94,7 @@ def fetch_block(reg, gi, model, ci, s, e):
     return False
 
 def main():
-    today = date.today()
+    today = datetime.now(CST).date()               # 北京时间(与数据时区一致)
     latest_target = today - timedelta(days=1)      # day1 需至少前一日
     all_blocks = blocks_upto(latest_target)
 
