@@ -95,7 +95,10 @@ def fetch_block(reg, gi, model, ci, s, e):
 
 def main():
     today = datetime.now(CST).date()               # 北京时间(与数据时区一致)
-    latest_target = today - timedelta(days=1)      # day1 需至少前一日
+    # issue_date = forecast_date - lead_day, 且 LEADS 最小为 1。
+    # 要让 issue_date 覆盖到"今天", forecast_date 必须能取到 today+1,
+    # 因此目标上限 = today + 1(而非 today-1, 那会让 issue_date 稳定滞后 2 天)。
+    latest_target = today + timedelta(days=1)
     all_blocks = blocks_upto(latest_target)
 
     # 找出本地已有的最大块号(按文件名)
