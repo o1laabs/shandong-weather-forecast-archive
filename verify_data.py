@@ -16,9 +16,31 @@
 """
 import csv, glob, os, sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
-D0, D1 = date(2025, 1, 1), date(2026, 9, 15)
+# 注意: 不要硬编码结束日期。数据每天都在增长, 写死的 D1 会让核验
+# 只覆盖到某个历史时点, 之后的新数据完全不被检查 —— 而这是推送前的唯一闸门。
+CST = timezone(timedelta(hours=8))
+D0 = date(2025, 1, 1)
+# 期望上界 = 分片库实际产出的最大 forecast_date。
+# 不要另算一套块推算 —— 那会与 daily_update.blocks_upto 的口径漂移, 导致
+# 核验覆盖范围与实际数据不符(曾出现少覆盖 5 天)。直接以数据为准。
+def _data_upper_bound(csv_root):
+    mx = None
+    for fp in glob.glob(os.path.join(csv_root, "*.csv")):
+        if os.path.basename(fp) == "all_regions.csv":
+            continue
+        try:
+            for r in csv.DictReader(open(fp, encoding="utf-8-sig")):
+                f = r.get("forecast_date")
+                if f and (mx is None or f > mx):
+                    mx = f
+        except Exception:
+            continue
+    return date.fromisoformat(mx) if mx else date(2025, 1, 1)
+
+
+D1 = _data_upper_bound(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "csv_out")
 CITIES = ["济南","青岛","淄博","枣庄","东营","烟台","潍坊","济宁","泰安","威海",
           "日照","临沂","德州","聊城","滨州","菏泽"]
 MODELS = ["gfs_seamless", "ecmwf_ifs025", "jma_seamless"]
