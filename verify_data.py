@@ -111,24 +111,41 @@ def check_rows(datadir):
     print("=" * 62)
     print("③ 行数自洽")
     print("=" * 62)
-    per, total = {}, 0
+    # all_regions.csv 由 rebuild_all.py 扫 csv_out/*.csv 合并而来, 已包含
+    # 鲁中参考点.csv 与 山东省_面积加权.csv —— 三个汇总文件必须排除, 否则重复计数。
+    # (2026-10-22: 旧代码只排除前两个, 漏了 山东省_面积加权, 恒定差 -13845 卡死推送)
+    SKIP = ("all_regions", "鲁中参考点", "山东省_面积加权")
+    parts = []
     for fp in sorted(glob.glob(f"{datadir}/*.csv")):
         nm = os.path.basename(fp)[:-4]
-        if nm in ("all_regions", "鲁中参考点"):
+        if nm in SKIP:
             continue
-        n = sum(1 for _ in open(fp, encoding="utf-8-sig")) - 1
-        per[nm] = n
-        total += n
-    ar = sum(1 for _ in open(f"{datadir}/all_regions.csv", encoding="utf-8-sig")) - 1
-    lz = sum(1 for _ in open(f"{datadir}/鲁中参考点.csv", encoding="utf-8-sig")) - 1 if os.path.exists(f"{datadir}/鲁中参考点.csv") else 0
-    total += lz   # all_regions 也含鲁中参考点
-    print(f"  各城市之和: {total}")
+        with open(fp, encoding="utf-8-sig") as f:
+            rd = csv.reader(f)
+            next(rd, None)
+            n = sum(1 for row in rd if any(c.strip() for c in row))
+        parts.append((nm, n))
+    # all_regions.csv 含全部 18 个区域: 16 个地市 + 山东省_面积加权 + 鲁中参考点。
+    # 后两个要是只排除不加回, 就会恒定差 2×13845 (2026-10-22 实测踩坑)。
+    extra = 0
+    for nm in ("山东省_面积加权", "鲁中参考点"):
+        fp = f"{datadir}/{nm}.csv"
+        if os.path.exists(fp):
+            with open(fp, encoding="utf-8-sig") as f:
+                rd = csv.reader(f); next(rd, None)
+                extra += sum(1 for row in rd if any(c.strip() for c in row))
+    total = sum(n for _, n in parts) + extra
+    with open(f"{datadir}/all_regions.csv", encoding="utf-8-sig") as f:
+        rd = csv.reader(f); next(rd, None)
+        ar = sum(1 for row in rd if any(c.strip() for c in row))
+    print(f"  各城市之和: {total}  ({len(parts)} 个地市 + 面积加权省 + 鲁中参考点)")
     print(f"  all_regions: {ar}")
     if total == ar:
         print("  -> 通过")
     else:
         print(f"  -> 不一致, 差 {total - ar}")
         FAIL.append("all_regions 行数不匹配")
+
 
 def check_leads(datadir):
     print()
@@ -138,7 +155,7 @@ def check_leads(datadir):
     bad = 0
     for fp in sorted(glob.glob(f"{datadir}/*.csv")):
         nm = os.path.basename(fp)[:-4]
-        if nm in ("all_regions", "鲁中参考点"):
+        if nm in ("all_regions", "鲁中参考点", "山东省_面积加权"):
             continue
         by = Counter((r["forecast_date"], r["model"]) for r in csv.DictReader(open(fp, encoding="utf-8-sig")))
         for (day, model), cnt in by.items():
@@ -165,7 +182,7 @@ def check_source_dates(datadir):
     limits = {"gfs_seamless": "2025-01-01", "ecmwf_ifs025": "2024-02-03", "jma_seamless": "2025-01-01"}
     for fp in sorted(glob.glob(f"{datadir}/*.csv")):
         nm = os.path.basename(fp)[:-4]
-        if nm in ("all_regions", "鲁中参考点"):
+        if nm in ("all_regions", "鲁中参考点", "山东省_面积加权"):
             continue
         first = {}
         for r in csv.DictReader(open(fp, encoding="utf-8-sig")):
